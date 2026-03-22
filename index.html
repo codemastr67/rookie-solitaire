@@ -449,16 +449,16 @@ function onTabCardClick(ci, ri) {
 
     if (s.type === 'discard') {
       // Rule 6: place discard card onto any face-up card in tableau
-      // One lower -> insert BELOW clicked card (ri+1)
-      if (canStack(s.card, card)) {
+      // One lower -> insert BELOW clicked card (ri+1), check card below seq too
+      if (canStack(s.card, card) && canInsert([s.card], col, ri + 1)) {
         const nc = {...s.card, faceUp:true};
         G.discard.splice(s.ri, 1);
         col.splice(ri + 1, 0, nc);
         G.score += 5; G.moves++;
         clearSel(); render(); return;
       }
-      // One higher -> insert ABOVE clicked card (ri)
-      if (canStackAbove(s.card, card)) {
+      // One higher -> insert ABOVE clicked card (ri), check card above seq too
+      if (canStackAbove(s.card, card) && canInsert([s.card], col, ri)) {
         const nc = {...s.card, faceUp:true};
         G.discard.splice(s.ri, 1);
         col.splice(ri, 0, nc);
@@ -469,16 +469,16 @@ function onTabCardClick(ci, ri) {
       // Rule 4 + Rule 6 for tableau: move sequence onto any face-up card in another column
       if (s.ci !== ci) {
         const seq = G.tab[s.ci].slice(s.ri);
-        // One lower -> insert BELOW clicked card (ri+1)
-        if (canStack(s.card, card)) {
+        // One lower -> insert BELOW clicked card (ri+1), check card below seq too
+        if (canStack(s.card, card) && canInsert(seq, col, ri + 1)) {
           G.tab[s.ci].splice(s.ri);
           autoFlip(s.ci);
           col.splice(ri + 1, 0, ...seq.map(c=>({...c, faceUp:true})));
           G.score += 5 * seq.length; G.moves++;
           clearSel(); render(); return;
         }
-        // One higher -> insert ABOVE clicked card (ri)
-        if (canStackAbove(s.card, card)) {
+        // One higher -> insert ABOVE clicked card (ri), check card above seq too
+        if (canStackAbove(s.card, card) && canInsert(seq, col, ri)) {
           G.tab[s.ci].splice(s.ri);
           autoFlip(s.ci);
           col.splice(ri, 0, ...seq.map(c=>({...c, faceUp:true})));
@@ -576,6 +576,19 @@ function canStack(card, target) {
 function canStackAbove(card, target) {
   if (card.isJoker || target.isJoker) return false;
   return card.color !== target.color && card.numVal === target.numVal + 1;
+}
+
+// Check that inserting `seq` at `insertIdx` in `col` doesn't break neighbors.
+// Card above insertion (col[insertIdx-1]) must stack onto seq[0].
+// Card below insertion (col[insertIdx]) must stack below seq's last card.
+function canInsert(seq, col, insertIdx) {
+  const above = col[insertIdx - 1];
+  const below = col[insertIdx];
+  const seqTop = seq[0];
+  const seqBot = seq[seq.length - 1];
+  if (above && above.faceUp && !canStack(seqTop, above)) return false;
+  if (below && below.faceUp && !canStack(below, seqBot)) return false;
+  return true;
 }
 
 function canFoundation(card, pile, suitIdx) {
